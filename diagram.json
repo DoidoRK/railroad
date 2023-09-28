@@ -9,7 +9,7 @@
         "id": "neopixels",
         "top": 182.24,
         "left": 98.83,
-        "attrs": { "rows": "8", "cols": "8", "pixelate": "circle" }
+        "attrs": { "rows": "8", "cols": "8", "pixelate": "square" }
       }
     ],
     "connections": [
@@ -17,5 +17,9 @@
       [ "uno:13", "neopixels:DIN", "green", [ "v-16", "*", "v8" ] ],
       [ "uno:5V", "neopixels:VDD", "red", [ "v20", "h-130", "*", "v8" ] ]
     ],
+    "serialMonitor": {
+      "display": "auto",
+      "newline": "lf"
+    },
     "dependencies": {}
 }
