@@ -1,1 +1,1 @@
-arduino-cli compile -b arduino:avr:uno --build-path build
+arduino-cli compile --fqbn arduino:avr:uno railroad.ino

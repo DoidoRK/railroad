@@ -7,7 +7,7 @@
 #define CHIPSET WS2812B
 #define VOLTS 5
 #define BRIGHTNESS 60  //Ajustar para 60 no sistema real
-#define MAX_AMPS 500  //mA (Ajustar para 500 no sistema real)
+#define MAX_AMPS 500 //mA (Ajustar para 500 no sistema real)
 
 // Array de LEDS
 CRGB leds[NUM_LEDS];
@@ -38,5 +38,5 @@ void setup() {
 }
 
 void loop() { 
-  rainbow(50);
+  rainbow(100);
 }
