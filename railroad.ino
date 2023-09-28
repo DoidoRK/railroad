@@ -1,4 +1,7 @@
 #include <FastLED.h>
+#include <Arduino_FreeRTOS.h>
+#include <semphr.h>
+#include "inttypes.h"
 
 //Ajustar NUM_LEDS
 #define NUM_LEDS 64 // Matriz de LED 8*8 (Ajustar NUM_LEDS para 64)
@@ -6,8 +9,8 @@
 #define COLOR_ORDER GRB //Para WS2812B é necessário utilizar esse padrão de cores
 #define CHIPSET WS2812B
 #define VOLTS 5
-#define BRIGHTNESS 60  //Ajustar para 60 no sistema real
-#define MAX_AMPS 500 //mA (Ajustar para 500 no sistema real)
+#define BRIGHTNESS 100  //Ajustar para 60 no sistema real
+#define MAX_AMPS 1000 //mA (Ajustar para 500 no sistema real)
 
 // Array de LEDS
 CRGB leds[NUM_LEDS];
@@ -29,8 +32,8 @@ void rainbow(int delay_ms) {
       leds[i] = CHSV(j, 255, 255);
     }
     FastLED.show(); // Atualiza as cores nas LEDs
-    delay(delay_ms); // Pausa entre os quadros
   }
+  delay(delay_ms); // Pausa entre os quadros
 }
 
 void setup() {
