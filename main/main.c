@@ -5,34 +5,52 @@
 #include "freertos/semphr.h"
 #include "conio_linux.h"
 #include "esp_log.h"
-// #include "types.h"
-// #include "print.h"
+#include "types.h"
+#include "print.h"
+
+#define PRINT_DELAY 500
 
 static const char *TAG = "file_system";
 
-// // const uint8_t RAILWAY_SIZE = sizeof(RAILWAY_X_VALUES) / sizeof(RAILWAY_X_VALUES[0]);
+station_t stations[NUM_STATIONS];
+train_t trains[NUM_TRAINS];
 
-// // position_t railway_path[RAILWAY_SIZE];
+int findPositionInRailway(const position_t *railway, size_t num_points, const position_t *target) {
+    for (int i = 0; i < num_points; i++) {
+        if (railway[i].x == target->x && railway[i].y == target->y) {
+            return i;
+        }
+    }
+    return -1; // Not found
+}
 
+void init_stations(){
+    for (uint8_t i = 0; i < NUM_STATIONS; i++) {
+        stations[i].station_pos = STATIONS_POSITIONS[i];
+        stations[i].station_id = 65 + i;
+    }
+    ESP_LOGI(TAG, "Stations successfully initiated.");
+}
 
-// // void init_railway_path(){
-// //     // Populate the railway_path variable with the data points
-// //     for (size_t i = 0; i < RAILWAY_SIZE; i++) {
-// //         railway_path[i].x = RAILWAY_X_VALUES[i];
-// //         railway_path[i].y = RAILWAY_Y_VALUES[i];
-// //     }
-// // }
-
+void init_trains(){
+    ESP_LOGI(TAG, "Trains successfully initated.");
+    for (uint8_t i = 0; i < NUM_TRAINS; i++) {
+        //In conio_linux.h the first color is black, which is the same as the terminal background
+        //So we start from the first color on.
+        trains[i].train_color = 1 + i;
+        trains[i].current_pos = STATIONS_POSITIONS[i];  //Trains start in different stations.
+        trains[i].train_number = 1 + i ;
+        trains[i].current_index = findPositionInRailway(RAILWAY,RAILWAY_SIZE, &trains[i].current_pos);
+    }
+}
 
 void print_map_task(void *args){
-    // Initialize a buffer to store the file content
-    
     size_t contentSize = 0;
     // Open the file for reading
     FILE *file = fopen("/files/map.txt", "r");
 
     if (file == NULL) {
-        printf("Failed to open the file.\n");
+        ESP_LOGE(TAG,"Failed to open the file.\n");
         return;
     }
     // Seek to the beginning of the file
@@ -43,23 +61,24 @@ void print_map_task(void *args){
     contentSize = ftell(file);
     fseek(file, 0, SEEK_SET);
 
-    //Buffer storing the file's content
+    //Buffer to store the file contents.
     char fileContent[contentSize];
 
     // Read the file content into the buffer
     size_t bytesRead = fread(fileContent, 1, contentSize, file);
 
     if (bytesRead != contentSize) {
-        printf("Failed to read the file.\n");
+        ESP_LOGE(TAG,"Failed to read the file.\n");
+        return;
     }
     fileContent[contentSize] = '\0';
 
     while (1) {
-        // Null-terminate the buffer to make it a valid C string
-        // Print the file content
         gotoxy(0,0);
         printf("%s\n", fileContent);
-        vTaskDelay(166 / portTICK_PERIOD_MS);
+        print_trains(trains);
+        gotoxy(0,22);
+        vTaskDelay(pdMS_TO_TICKS(PRINT_DELAY));
     }
 }
 
@@ -87,9 +106,10 @@ void app_main() {
     } else {
         ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
     }
-
-    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    
+    init_stations();
+    init_trains();
     clrscr();
 
-    xTaskCreate(print_map_task, "PrintMapTask", 2048, NULL, 3, NULL);
+    xTaskCreate(print_map_task, "PrintMapTask", 4096, NULL, 3, NULL);
 }
