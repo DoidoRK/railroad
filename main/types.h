@@ -23,7 +23,7 @@ typedef struct station_struct {
     position_t station_pos;
     int8_t station_index;
     uint8_t station_id;
-    bool is_train_parked;
+    int8_t train_parked;
 } station_t;
 
 

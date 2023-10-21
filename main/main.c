@@ -9,9 +9,9 @@
 #include "print.h"
 
 #define PRINT_DELAY 300
-#define TRAIN_STOP_IN_STATION_DELAY 2000
-#define TRAIN_NORMAL_SPEED 500
-#define TRAIN_SLOW_SPEED 1000
+#define TRAIN_STOP_IN_STATION_DELAY 5000
+#define TRAIN_NORMAL_SPEED 250
+#define TRAIN_SLOW_SPEED 750
 #define STATION_UPDATE_TIME 100
 
 static const char *FILE_SYSTEM_TAG = "file_system";
@@ -67,21 +67,20 @@ void station_task(void *params){
     while (true)
     {
         uint8_t i = 0;
-        bool finished = false;
         bool train_is_parked = false;
-        while(i < NUM_TRAINS && !finished ){
-            train_is_parked = false;
+        while(i < NUM_TRAINS && !train_is_parked ){
             if(trains[i].current_index == stations[station_id].station_index){
                 xSemaphoreTake(stations_mutex, portMAX_DELAY);
-                stations[station_id].is_train_parked = true;
+                stations[station_id].train_parked = i;
                 xSemaphoreGive(stations_mutex);
                 train_is_parked = true;
-                finished = true;
             }
             i++;
         }
         if(!train_is_parked){
-            stations[station_id].is_train_parked = false;
+            xSemaphoreTake(stations_mutex, portMAX_DELAY);
+            stations[station_id].train_parked = -1;
+            xSemaphoreGive(stations_mutex);
         }
         vTaskDelay(pdMS_TO_TICKS(STATION_UPDATE_TIME));
     }
@@ -90,36 +89,35 @@ void station_task(void *params){
 void train_task(void *params){
     uint8_t *p_train_number = (uint8_t *)params;
     uint8_t train_number = *p_train_number;
-    bool stopped_in_station = false;
     station_t next_station = stations[train_number+1];
     while (true)
     {
+        xSemaphoreTake(trains_mutex, portMAX_DELAY);
         if(trains[train_number].current_index < RAILWAY_SIZE){
-            xSemaphoreTake(trains_mutex, portMAX_DELAY);
             trains[train_number].current_index++;
-            trains[train_number].current_pos = RAILWAY[trains[train_number].current_index];
-            xSemaphoreGive(trains_mutex);
         } else {
-            xSemaphoreTake(trains_mutex, portMAX_DELAY);
-                trains[train_number].current_index = 0;
-            xSemaphoreGive(trains_mutex);
+            trains[train_number].current_index = 0;
         }
-        stopped_in_station = false;
-        if(!next_station.is_train_parked){
-            for (size_t i = 0; i < NUM_STATIONS; i++)
-            {
-                if(stations[i].station_index == trains[train_number].current_index){
-                    stopped_in_station = true;
-                }
+        trains[train_number].current_pos = RAILWAY[trains[train_number].current_index];
+        xSemaphoreGive(trains_mutex);
+
+        int i = 0;
+        bool stopped_in_station = false;
+        while(i < NUM_STATIONS && !stopped_in_station ){
+            if(stations[i].station_index == trains[train_number].current_index){
+                stopped_in_station = true;
             }
-            if(stopped_in_station){
-                vTaskDelay(pdMS_TO_TICKS(TRAIN_STOP_IN_STATION_DELAY));
-            } else {
-                vTaskDelay(pdMS_TO_TICKS(TRAIN_NORMAL_SPEED));
-            }
-            vTaskDelay(pdMS_TO_TICKS(TRAIN_NORMAL_SPEED));
+            i++;
+        }
+        if(stopped_in_station){
+            vTaskDelay(pdMS_TO_TICKS(TRAIN_STOP_IN_STATION_DELAY));
         } else {
-            vTaskDelay(pdMS_TO_TICKS(TRAIN_SLOW_SPEED));
+            next_station = stations[next_station.station_id+1];
+            if(-1 == next_station.train_parked){
+                vTaskDelay(pdMS_TO_TICKS(TRAIN_NORMAL_SPEED));
+            } else {
+                vTaskDelay(pdMS_TO_TICKS(TRAIN_SLOW_SPEED));
+            }
         }
     }
 }
@@ -205,11 +203,15 @@ void app_main() {
     init_trains();
     clrscr();
 
-
     xTaskCreate(print_map_task, "PrintMapTask", 4096, NULL, 3, NULL);
+
+    for (uint8_t i = 0; i < NUM_STATIONS; i++)
+    {
+        xTaskCreate(station_task, "StationTask", 4096, &i, 1, NULL);
+    }
 
     for (uint8_t i = 0; i < NUM_TRAINS; i++)
     {
-        xTaskCreate(train_task, "TrainTask", 4096, &i, 2, NULL);
+        xTaskCreate(train_task, "TrainTask", 4096, &i, 1, NULL);
     }
 }
