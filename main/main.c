@@ -8,9 +8,11 @@
 #include "types.h"
 #include "print.h"
 
-#define PRINT_DELAY 100
+#define PRINT_DELAY 300
 #define TRAIN_STOP_IN_STATION_DELAY 2000
-#define TRAIN_MOVE_DELAY 200
+#define TRAIN_NORMAL_SPEED 500
+#define TRAIN_SLOW_SPEED 1000
+#define STATION_UPDATE_TIME 100
 
 static const char *FILE_SYSTEM_TAG = "file_system";
 static const char *MAIN_TAG = "railroad_system";
@@ -37,7 +39,7 @@ void init_stations(){
             ESP_LOGE(MAIN_TAG, "Station position not found in the railway");
             return;
         }
-        stations[i].station_id = 65 + i;
+        stations[i].station_id = i;
         stations[i].is_train_parked = false;
     }
     ESP_LOGI(MAIN_TAG, "Stations successfully initiated.");
@@ -59,39 +61,66 @@ void init_trains(){
     ESP_LOGI(MAIN_TAG, "Trains successfully initated.");
 }
 
+void station_task(void *params){
+    uint8_t *p_station_id = (uint8_t *)params;
+    uint8_t station_id = *p_station_id;
+    while (true)
+    {
+        uint8_t i = 0;
+        bool finished = false;
+        bool train_is_parked = false;
+        while(i < NUM_TRAINS && !finished ){
+            train_is_parked = false;
+            if(trains[i].current_index == stations[station_id].station_index){
+                xSemaphoreTake(stations_mutex, portMAX_DELAY);
+                stations[station_id].is_train_parked = true;
+                xSemaphoreGive(stations_mutex);
+                train_is_parked = true;
+                finished = true;
+            }
+            i++;
+        }
+        if(!train_is_parked){
+            stations[station_id].is_train_parked = false;
+        }
+        vTaskDelay(pdMS_TO_TICKS(STATION_UPDATE_TIME));
+    }
+}
+
 void train_task(void *params){
     uint8_t *p_train_number = (uint8_t *)params;
     uint8_t train_number = *p_train_number;
     bool stopped_in_station = false;
+    station_t next_station = stations[train_number+1];
     while (true)
     {
         if(trains[train_number].current_index < RAILWAY_SIZE){
-            xSemaphoreTake(stations_mutex, portMAX_DELAY);
-            stations[trains[train_number].current_index].is_train_parked = false;
-            xSemaphoreGive(stations_mutex);
             xSemaphoreTake(trains_mutex, portMAX_DELAY);
             trains[train_number].current_index++;
             trains[train_number].current_pos = RAILWAY[trains[train_number].current_index];
             xSemaphoreGive(trains_mutex);
         } else {
-            trains[train_number].current_index = 0;
+            xSemaphoreTake(trains_mutex, portMAX_DELAY);
+                trains[train_number].current_index = 0;
+            xSemaphoreGive(trains_mutex);
         }
         stopped_in_station = false;
-        for (size_t i = 0; i < NUM_STATIONS; i++)
-        {
-            if(stations[i].station_index == trains[train_number].current_index){
-                stopped_in_station = true;
-                xSemaphoreTake(stations_mutex, portMAX_DELAY);
-                stations[i].is_train_parked = true;
-                xSemaphoreGive(stations_mutex);
+        if(!next_station.is_train_parked){
+            for (size_t i = 0; i < NUM_STATIONS; i++)
+            {
+                if(stations[i].station_index == trains[train_number].current_index){
+                    stopped_in_station = true;
+                }
             }
-        }
-        if(stopped_in_station){
-            vTaskDelay(pdMS_TO_TICKS(TRAIN_STOP_IN_STATION_DELAY));
+            if(stopped_in_station){
+                vTaskDelay(pdMS_TO_TICKS(TRAIN_STOP_IN_STATION_DELAY));
+            } else {
+                vTaskDelay(pdMS_TO_TICKS(TRAIN_NORMAL_SPEED));
+            }
+            vTaskDelay(pdMS_TO_TICKS(TRAIN_NORMAL_SPEED));
         } else {
-            vTaskDelay(pdMS_TO_TICKS(TRAIN_MOVE_DELAY));
+            vTaskDelay(pdMS_TO_TICKS(TRAIN_SLOW_SPEED));
         }
-        vTaskDelay(pdMS_TO_TICKS(TRAIN_MOVE_DELAY));
     }
 }
 
