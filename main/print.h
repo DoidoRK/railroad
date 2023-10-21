@@ -2,11 +2,12 @@
 #define _PRINT_H_
 
 #include "types.h"
+#include "conio_linux.h"
 
+void print_trains(train_t train){
 
-void show_station_terminal(){
-    
 }
+
 // ╔═══════════════════════╗
 // ║        TERMINAL       ║
 // ║           A           ║
