@@ -7,15 +7,15 @@
   \                |█ E        ╚═══════════════════╝ 
     ──            /            TERMINAL B                      TERMINAL E
     ▀▀ \         /             TREM 1 561 segundos             TREM 1 561 segundos
-    A   \       /               TREM 2 Na estação               TREM 2 Na estação
-         |     |                TREM 3 124 segundos             TREM 3 124 segundos
-         |     |                TREM 4 245 segundos             TREM 4 245 segundos
+    A   \       /              TREM 2 Na estação               TREM 2 Na estação
+         |     |               TREM 3 124 segundos             TREM 3 124 segundos
+         |     |               TREM 4 245 segundos             TREM 4 245 segundos
     B    |     |█ D             
-    ▄▄  /      |                TERMINAL C                      TERMINAL F
-    ───       /                 TREM 1 561 segundos             TREM 1 561 segundos
-  /          /                  TREM 2 Na estação               TREM 2 Na estação
- /          /                   TREM 3 124 segundos             TREM 3 124 segundos
-|          /                    TREM 4 245 segundos             TREM 4 245 segundos
+    ▄▄  /      |               TERMINAL C                      TERMINAL F
+    ───       /                TREM 1 561 segundos             TREM 1 561 segundos
+  /          /                 TREM 2 Na estação               TREM 2 Na estação
+ /          /                  TREM 3 124 segundos             TREM 3 124 segundos
+|          /                   TREM 4 245 segundos             TREM 4 245 segundos
  \    C   /  
   \  ▄▄  /  
     ────
