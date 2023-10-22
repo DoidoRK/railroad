@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include "esp_spiffs.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -7,6 +6,7 @@
 #include "esp_log.h"
 #include "types.h"
 #include "print.h"
+#include "file_system.h"
 
 #define PRINT_DELAY 300
 #define TRAIN_STOP_IN_STATION_DELAY 5000
@@ -14,8 +14,11 @@
 #define TRAIN_SLOW_SPEED 750
 #define STATION_UPDATE_TIME 100
 
-static const char *FILE_SYSTEM_TAG = "file_system";
 static const char *MAIN_TAG = "railroad_system";
+
+char original_map[ROWS * (COLUMNS + 1)];
+
+char animation_buffer[ROWS * (COLUMNS + 1)];
 
 station_t stations[NUM_STATIONS];
 train_t trains[NUM_TRAINS];
@@ -127,38 +130,10 @@ void train_task(void *params){
 }
 
 void print_map_task(void *params){
-    size_t contentSize = 0;
-    // Open the file for reading
-    FILE *file = fopen("/files/map.txt", "r");
-
-    if (file == NULL) {
-        ESP_LOGE(FILE_SYSTEM_TAG, "Failed to open the file.\n");
-        return;
-    }
-    // Seek to the beginning of the file
-    fseek(file, 0, SEEK_SET);
-
-    // Check the file size
-    fseek(file, 0, SEEK_END);
-    contentSize = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    //Buffer to store the file contents.
-    char fileContent[contentSize];
-
-    // Read the file content into the buffer
-    size_t bytesRead = fread(fileContent, 1, contentSize, file);
-
-    if (bytesRead != contentSize) {
-        ESP_LOGE(FILE_SYSTEM_TAG, "Failed to read the file.\n");
-        return;
-    }
-    fileContent[contentSize] = '\0';
-
     while (1) {
-        print_trains(trains);
+        // print_trains(trains);
         gotoxy(0,0);
-        printf("%s\n", fileContent);
+        printf("%s\n", original_map);
         vTaskDelay(pdMS_TO_TICKS(PRINT_DELAY));
         gotoxy(0,22);
     }
@@ -166,28 +141,8 @@ void print_map_task(void *params){
 
 
 void app_main() {
-    // Mount the SPIFFS file system
-    esp_vfs_spiffs_conf_t conf = {
-        .base_path = "/files",
-        .partition_label = NULL,
-        .max_files = 5,
-        .format_if_mount_failed = true
-    };
-    
-    esp_err_t ret = esp_vfs_spiffs_register(&conf);
-    if (ret != ESP_OK) {
-        ESP_LOGE(FILE_SYSTEM_TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
-        return;
-    }
-
-    size_t total = 0, used = 0;
-    ret = esp_spiffs_info(conf.partition_label,&total,&used);
-    if (ret != ESP_OK) {
-        ESP_LOGE(FILE_SYSTEM_TAG, "Failed to get partition info (%s)", esp_err_to_name(ret));
-        return;
-    } else {
-        ESP_LOGI(FILE_SYSTEM_TAG, "Partition size: total: %d, used: %d", total, used);
-    }
+    init_file_system();
+    read_file_content(original_map);
     
     trains_mutex = xSemaphoreCreateMutex();
     if (trains_mutex == NULL) {
