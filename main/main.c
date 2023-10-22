@@ -134,9 +134,17 @@ void train_task(void *params){
 
 void print_map_task(void *params){
     while (1) {
+        int z = 0;
+        for (size_t i = 0; i < NUM_STATIONS/2; i++)
+        {
+            for (size_t j = 0; j < NUM_STATIONS/3; j++)
+            {
+                print_station_time_table(27+(30*i),2+(10*j),trains,stations[z]);
+                z++;
+            }
+        }
         copy_buffer(animation_buffer,original_map, BUFF_SIZE*sizeof(char));
         update_trains(animation_buffer,trains);
-        clrscr();
         gotoxy(0,0);
         printf("%s\n", animation_buffer);
         gotoxy(0,22);

@@ -22,12 +22,16 @@ void print_train_status(train_t train, station_t station){
     setfontcolor(WHITE);
     if(train.current_index == station.station_index){
         //Train in station
-        printf(" Na estação    ║");
+        setfontcolor(GREEN);
+        printf(" Na estação    ");
+        setfontcolor(WHITE);
+        printf("║");
     } else {
         //Calcula tempo até chegada.
         // printf("%d", time_till_arrival);
-        printf("segundos  ║");
+        printf(" n segundos    ║");
     }
+    setfontcolor(WHITE);
 }
 
 void print_station_time_table(uint8_t x, uint8_t y, train_t active_trains[NUM_TRAINS], station_t station){
