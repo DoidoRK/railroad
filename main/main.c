@@ -40,7 +40,7 @@ void init_stations(){
             return;
         }
         stations[i].station_id = i;
-        stations[i].is_train_parked = false;
+        stations[i].train_parked = -1;
     }
     ESP_LOGI(MAIN_TAG, "Stations successfully initiated.");
 }
@@ -110,13 +110,17 @@ void train_task(void *params){
             i++;
         }
         if(stopped_in_station){
+            if( NUM_STATIONS > next_station.station_id+1){
+                next_station = stations[0];
+            } else{
+                next_station = stations[next_station.station_id+1];
+            }
             vTaskDelay(pdMS_TO_TICKS(TRAIN_STOP_IN_STATION_DELAY));
         } else {
-            next_station = stations[next_station.station_id+1];
             if(-1 == next_station.train_parked){
-                vTaskDelay(pdMS_TO_TICKS(TRAIN_NORMAL_SPEED));
-            } else {
                 vTaskDelay(pdMS_TO_TICKS(TRAIN_SLOW_SPEED));
+            } else {
+                vTaskDelay(pdMS_TO_TICKS(TRAIN_NORMAL_SPEED));
             }
         }
     }
