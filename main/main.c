@@ -1,7 +1,8 @@
 #include <stdio.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/semphr.h>
+#include <string.h>
 #include "conio_linux.h"
 #include "esp_log.h"
 #include "types.h"
@@ -34,21 +35,22 @@ int8_t findPositionInRailway(const position_t *railway, size_t num_points, const
     return -1; // Not found
 }
 
-void init_stations(){
+esp_err_t init_stations(){
     for (uint8_t i = 0; i < NUM_STATIONS; i++) {
         stations[i].station_pos = STATIONS_POSITIONS[i];
         stations[i].station_index = findPositionInRailway(RAILWAY,RAILWAY_SIZE,&stations[i].station_pos);
         if(-1 == stations[i].station_index){
             ESP_LOGE(MAIN_TAG, "Station position not found in the railway");
-            return;
+            return ESP_FAIL;
         }
         stations[i].station_id = i;
         stations[i].train_parked = -1;
     }
     ESP_LOGI(MAIN_TAG, "Stations successfully initiated.");
+    return ESP_OK;
 }
 
-void init_trains(){
+esp_err_t init_trains(){
     for (uint8_t i = 0; i < NUM_TRAINS; i++) {
         //In conio_linux.h the first color is black, which is the same as the terminal background
         //So we start from the first color on.
@@ -58,10 +60,11 @@ void init_trains(){
         trains[i].current_index = findPositionInRailway(RAILWAY,RAILWAY_SIZE, &trains[i].current_pos);
         if(-1 == trains[i].current_index){
             ESP_LOGE(MAIN_TAG, "Train position not found in the railway");
-            return;
+            return ESP_FAIL;
         }
     }
     ESP_LOGI(MAIN_TAG, "Trains successfully initated.");
+    return ESP_OK;
 }
 
 void station_task(void *params){
@@ -141,8 +144,8 @@ void print_map_task(void *params){
 
 
 void app_main() {
-    init_file_system();
-    read_file_content(original_map);
+    ESP_ERROR_CHECK(init_file_system());
+    ESP_ERROR_CHECK(read_file_content(original_map));
     
     trains_mutex = xSemaphoreCreateMutex();
     if (trains_mutex == NULL) {
@@ -158,8 +161,9 @@ void app_main() {
     }
     xSemaphoreGive(stations_mutex);
 
-    init_stations();
-    init_trains();
+    ESP_ERROR_CHECK(init_stations());
+    ESP_ERROR_CHECK(init_trains());
+
     clrscr();
 
     xTaskCreate(print_map_task, "PrintMapTask", 4096, NULL, 3, NULL);
