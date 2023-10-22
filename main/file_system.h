@@ -36,7 +36,7 @@ esp_err_t init_file_system(){
     }
 }
 
-esp_err_t read_file_content(char file_content[ROWS * (COLUMNS + 1)]){
+esp_err_t read_file_content(char file_content[BUFF_SIZE]){
     size_t content_size;
 
     // Open the file for reading
@@ -56,13 +56,13 @@ esp_err_t read_file_content(char file_content[ROWS * (COLUMNS + 1)]){
     fseek(file, 0, SEEK_SET);
 
     // Read the file content into the buffer
-    size_t bytes_read = fread(file_content, 1, ROWS * (COLUMNS + 1), file);
+    size_t bytes_read = fread(file_content, 1, BUFF_SIZE, file);
 
     if (bytes_read != content_size) {
         ESP_LOGE(FILE_SYSTEM_TAG, "Failed to read the file.\n");
         return ESP_FAIL;
     }
-    file_content[ROWS * (COLUMNS + 1)] = '\0';
+    file_content[BUFF_SIZE] = '\0';
 
     return ESP_OK;
 }

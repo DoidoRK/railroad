@@ -4,6 +4,7 @@
 #include "stdio.h"
 #include "types.h"
 #include "conio_linux.h"
+#include "utils.h"
 
 // ╔═══════════════════════╗
 // ║        TERMINAL       ║
@@ -14,7 +15,7 @@
 // ║  TREM 4 240 segundos  ║
 // ║                       ║
 // ╚═══════════════════════╝
-void print_train_line_in_terminal(train_t train, station_t station){
+void print_train_status(train_t train, station_t station){
     printf("║  TREM ");
     setfontcolor(train.train_color);
     printf("%d",(train.train_number));
@@ -43,24 +44,12 @@ void print_station_time_table(uint8_t x, uint8_t y, train_t active_trains[NUM_TR
     for (int i = 0; i < NUM_TRAINS; i++)
     {
         gotoxy(x,y+3+i);
-        print_train_line_in_terminal(active_trains[i], station);
+        print_train_status(active_trains[i], station);
     }
     gotoxy(x,y+3+NUM_TRAINS);
     printf("║                       ║");
     gotoxy(x,y+4+NUM_TRAINS);
     printf("╚═══════════════════════╝");
 }
-
-void update_trains(train_t active_trains[NUM_TRAINS]){
-    //Prints each train in the screen.
-    for (uint8_t i = 0; i < NUM_TRAINS; i++)
-    {
-        gotoxy(active_trains[i].current_pos.x,active_trains[i].current_pos.y);
-        setfontcolor(active_trains[i].train_color);
-        printf("■");
-    }
-    setfontcolor(WHITE);
-}
-
 
 #endif //_PRINT_H_

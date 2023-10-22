@@ -2,9 +2,9 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/semphr.h>
+#include <esp_log.h>
 #include <string.h>
 #include "conio_linux.h"
-#include "esp_log.h"
 #include "types.h"
 #include "print.h"
 #include "file_system.h"
@@ -17,9 +17,9 @@
 
 static const char *MAIN_TAG = "railroad_system";
 
-char original_map[ROWS * (COLUMNS + 1)];
+char original_map[BUFF_SIZE];
 
-char animation_buffer[ROWS * (COLUMNS + 1)];
+char animation_buffer[BUFF_SIZE];
 
 station_t stations[NUM_STATIONS];
 train_t trains[NUM_TRAINS];
@@ -134,11 +134,13 @@ void train_task(void *params){
 
 void print_map_task(void *params){
     while (1) {
-        // print_trains(trains);
+        copy_buffer(animation_buffer,original_map, BUFF_SIZE*sizeof(char));
+        update_trains(animation_buffer,trains);
+        clrscr();
         gotoxy(0,0);
-        printf("%s\n", original_map);
-        vTaskDelay(pdMS_TO_TICKS(PRINT_DELAY));
+        printf("%s\n", animation_buffer);
         gotoxy(0,22);
+        vTaskDelay(pdMS_TO_TICKS(PRINT_DELAY));
     }
 }
 
@@ -150,14 +152,14 @@ void app_main() {
     trains_mutex = xSemaphoreCreateMutex();
     if (trains_mutex == NULL) {
         ESP_LOGE(MAIN_TAG, "Trains mutex creation failed");
-        return;
+        exit(1);
     }
     xSemaphoreGive(trains_mutex);
 
     stations_mutex = xSemaphoreCreateMutex();
     if (stations_mutex == NULL) {
         ESP_LOGE(MAIN_TAG, "Stations mutex creation failed");
-        return;
+        exit(1);
     }
     xSemaphoreGive(stations_mutex);
 

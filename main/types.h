@@ -5,6 +5,7 @@
 
 #define ROWS 21
 #define COLUMNS 23
+#define BUFF_SIZE ROWS * (COLUMNS + 1)
 
 #define NUM_TRAINS 4
 #define NUM_STATIONS 6
