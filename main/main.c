@@ -8,12 +8,6 @@
 #include "types.h"
 #include "print.h"
 
-#define PRINT_DELAY 1000
-#define TRAIN_STOP_IN_STATION_DELAY 5000
-#define TRAIN_NORMAL_SPEED 1000
-#define TRAIN_SLOW_SPEED 2000
-#define STATION_UPDATE_TIME 100
-
 static const char *FILE_SYSTEM_TAG = "file_system";
 static const char *MAIN_TAG = "railroad_system";
 
@@ -94,17 +88,17 @@ void train_task(void *params){
 
         //Checks if there is a train stopped in the next station
         int i = 0;
-        p_train->status = 2;
+        p_train->status = NORMAL_SPEED;
         if((*p_next_station).train_parked >= 0){
             //If there is, reduce speed.
-            p_train->status = 1;
+            p_train->status = SLOW_SPEED;
         }
 
         //Checks if it's currently stopped in a station
         while(i < NUM_STATIONS){
             if(stations[i].station_index == (*p_train).current_index){
                 //If it is, stops and waits for the passengers
-                p_train->status = 0;
+                p_train->status = STOPPED_IN_STATION;
                 if(i+1 < NUM_STATIONS){
                     p_next_station = &stations[i+1];
                 } else {
@@ -117,16 +111,16 @@ void train_task(void *params){
         xSemaphoreGive(trains_mutex);
         switch ((*p_train).status)
         {
-        case 0: //Train is stopped in station
-            vTaskDelay(pdMS_TO_TICKS(TRAIN_STOP_IN_STATION_DELAY));
+        case STOPPED_IN_STATION: //Train is stopped in station
+            vTaskDelay(pdMS_TO_TICKS(TRAIN_STOP_IN_STATION_DELAY_IN_MS));
             break;
         
-        case 1: //There's a train in the next station
-            vTaskDelay(pdMS_TO_TICKS(TRAIN_SLOW_SPEED));
+        case SLOW_SPEED: //There's a train in the next station
+            vTaskDelay(pdMS_TO_TICKS(TRAIN_SLOW_SPEED_IN_MS));
             break;
 
         default:    //The next station is empty
-            vTaskDelay(pdMS_TO_TICKS(TRAIN_NORMAL_SPEED));
+            vTaskDelay(pdMS_TO_TICKS(TRAIN_NORMAL_SPEED_IN_MS));
             break;
         }
     }

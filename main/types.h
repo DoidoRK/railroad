@@ -3,9 +3,24 @@
 
 #include <inttypes.h>
 
+//Railroad architecture
 #define NUM_TRAINS 4
 #define NUM_STATIONS 6
 #define RAILWAY_SIZE 52
+
+//Timings
+#define PRINT_DELAY 1000
+#define TRAIN_STOP_IN_STATION_DELAY_IN_MS 5000
+#define TRAIN_NORMAL_SPEED_IN_MS 1000
+#define TRAIN_SLOW_SPEED_IN_MS 3000
+#define STATION_UPDATE_TIME 100
+
+//Train status
+enum states{
+    STOPPED_IN_STATION,
+    SLOW_SPEED,
+    NORMAL_SPEED
+};
 
 typedef struct position_struct {
     uint8_t x;

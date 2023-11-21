@@ -1,8 +1,9 @@
 #ifndef _PRINT_H_
 #define _PRINT_H_
 
-#include "stdio.h"
+#include <stdio.h>
 #include "types.h"
+#include "utils.h"
 #include "conio_linux.h"
 
 // ╔═══════════════════════╗
@@ -14,7 +15,7 @@
 // ║  TREM 4 240 segundos  ║
 // ║                       ║
 // ╚═══════════════════════╝
-void print_train_status(train_t train, station_t station){
+void print_train_status(train_t train, station_t station, int time_to_arrival){
     printf("║  TREM ");
     setfontcolor(train.train_color);
     printf("%d",(train.train_number));
@@ -26,14 +27,12 @@ void print_train_status(train_t train, station_t station){
         setfontcolor(WHITE);
         printf("║");
     } else {
-        //Calcula tempo até chegada.
-        // printf("%d", time_till_arrival);
-        printf(" n segundos    ║");
+        printf(" %-3d segundos  ║", time_to_arrival);
     }
     setfontcolor(WHITE);
 }
 
-void print_station_time_table(uint8_t x, uint8_t y, train_t active_trains[NUM_TRAINS], station_t station){
+void print_station_time_table(const uint8_t x, const uint8_t y, train_t active_trains[NUM_TRAINS], const station_t station){
     //Checks distance between train and terminal and shows the time remaining.
     gotoxy(x,y);
     printf("╔═══════════════════════╗");
@@ -47,7 +46,10 @@ void print_station_time_table(uint8_t x, uint8_t y, train_t active_trains[NUM_TR
     for (int i = 0; i < NUM_TRAINS; i++)
     {
         gotoxy(x,y+3+i);
-        print_train_status(active_trains[i], station);
+        int time_to_arrival = calculateTimeToStation(active_trains[i].current_index,station.station_index,
+        TRAIN_STOP_IN_STATION_DELAY_IN_MS/1000,TRAIN_NORMAL_SPEED_IN_MS/1000,TRAIN_SLOW_SPEED_IN_MS/1000,
+        active_trains[i].status);
+        print_train_status(active_trains[i], station, time_to_arrival);
     }
     gotoxy(x,y+3+NUM_TRAINS);
     printf("║                       ║");
