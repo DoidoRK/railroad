@@ -46,7 +46,7 @@ void print_station_time_table(const uint8_t x, const uint8_t y, train_t active_t
     for (int i = 0; i < NUM_TRAINS; i++)
     {
         gotoxy(x,y+3+i);
-        int time_to_arrival = calculateTimeToStation(active_trains[i].current_index,station.station_index,
+        int time_to_arrival = calculate_time_to_station(active_trains[i].current_index,station.station_index,
         TRAIN_STOP_IN_STATION_DELAY_IN_MS/1000,TRAIN_NORMAL_SPEED_IN_MS/1000,TRAIN_SLOW_SPEED_IN_MS/1000,
         active_trains[i].status);
         print_train_status(active_trains[i], station, time_to_arrival);
