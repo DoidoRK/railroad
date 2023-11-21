@@ -16,7 +16,7 @@ train_t trains[NUM_TRAINS];
 
 SemaphoreHandle_t trains_mutex, stations_mutex;
 
-int8_t findPositionInRailway(const position_t *railway, size_t num_points, const position_t *target) {
+int8_t find_position_in_railway(const position_t *railway, size_t num_points, const position_t *target) {
     for (int i = 0; i < num_points; i++) {
         if (railway[i].x == target->x && railway[i].y == target->y) {
             return i;
@@ -26,9 +26,10 @@ int8_t findPositionInRailway(const position_t *railway, size_t num_points, const
 }
 
 esp_err_t init_stations(){
+
     for (uint8_t i = 0; i < NUM_STATIONS; i++) {
         stations[i].station_pos = STATIONS_POSITIONS[i];
-        stations[i].station_index = findPositionInRailway(RAILWAY,RAILWAY_SIZE,&stations[i].station_pos);
+        stations[i].station_index = find_position_in_railway(RAILWAY,RAILWAY_SIZE,&stations[i].station_pos);
         if(-1 == stations[i].station_index){
             ESP_LOGE(MAIN_TAG, "Station position not found in the railway");
             return ESP_FAIL;
@@ -45,7 +46,7 @@ esp_err_t init_trains(){
         trains[i].train_color = 1 + i;
         trains[i].current_pos = STATIONS_POSITIONS[i];  //Trains start in different stations.
         trains[i].train_number = i+1;
-        trains[i].current_index = findPositionInRailway(RAILWAY,RAILWAY_SIZE, &trains[i].current_pos);
+        trains[i].current_index = find_position_in_railway(RAILWAY,RAILWAY_SIZE, &trains[i].current_pos);
         trains[i].status = 2;
         if(trains[i].current_index == -1){
             ESP_LOGE(MAIN_TAG, "Train position not found in the railway");
@@ -212,8 +213,8 @@ void app_main() {
     }
     xSemaphoreGive(stations_mutex);
 
-    ESP_ERROR_CHECK(init_stations());
     ESP_ERROR_CHECK(init_trains());
+    ESP_ERROR_CHECK(init_stations());
     clrscr();
 
     xTaskCreate(print_system_task, "PrintSystemTask", 4096, NULL, 3, NULL);
