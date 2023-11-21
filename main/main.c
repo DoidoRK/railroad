@@ -48,13 +48,12 @@ esp_err_t init_stations(){
 
 esp_err_t init_trains(){
     for (uint8_t i = 0; i < NUM_TRAINS; i++) {
-        //In conio_linux.h the first color is black, which is the same as the terminal background
-        //So we start from the first color on.
         trains[i].train_color = 1 + i;
         trains[i].current_pos = STATIONS_POSITIONS[i];  //Trains start in different stations.
-        trains[i].train_number = i;
+        trains[i].train_number = i+1;
         trains[i].current_index = findPositionInRailway(RAILWAY,RAILWAY_SIZE, &trains[i].current_pos);
-        if(-1 == trains[i].current_index){
+        trains[i].status = 2;
+        if(trains[i].current_index == -1){
             ESP_LOGE(MAIN_TAG, "Train position not found in the railway");
             return ESP_FAIL;
         }
@@ -64,66 +63,71 @@ esp_err_t init_trains(){
 }
 
 void station_task(void *params){
-    uint8_t *p_station_id = (uint8_t *)params;
-    uint8_t station_id = *p_station_id;
+    station_t *p_station = (station_t *)params;
     while (true)
     {
         uint8_t i = 0;
-        bool train_is_parked = false;
-        while(i < NUM_TRAINS && !train_is_parked ){
-            if(trains[i].current_index == stations[station_id].station_index){
-                xSemaphoreTake(stations_mutex, portMAX_DELAY);
-                stations[station_id].train_parked = i;
-                xSemaphoreGive(stations_mutex);
-                train_is_parked = true;
+        xSemaphoreTake(stations_mutex, portMAX_DELAY);
+        p_station->train_parked = -1;
+        while(i < NUM_TRAINS){
+            if(trains[i].current_index == (*p_station).station_index){
+                p_station->train_parked = i;
             }
             i++;
         }
-        if(!train_is_parked){
-            xSemaphoreTake(stations_mutex, portMAX_DELAY);
-            stations[station_id].train_parked = -1;
-            xSemaphoreGive(stations_mutex);
-        }
+        xSemaphoreGive(stations_mutex);
         vTaskDelay(pdMS_TO_TICKS(STATION_UPDATE_TIME));
     }
 }
 
 void train_task(void *params){
-    uint8_t *p_train_number = (uint8_t *)params;
-    uint8_t train_number = *p_train_number;
-    station_t next_station = stations[train_number+1];
+    train_t *p_train = (train_t *)params;
+    station_t *p_next_station = &stations[(*p_train).train_number];
     while (true)
     {
         xSemaphoreTake(trains_mutex, portMAX_DELAY);
-        if(trains[train_number].current_index < RAILWAY_SIZE){
-            trains[train_number].current_index++;
-        } else {
-            trains[train_number].current_index = 0;
+        p_train->current_index++;
+        if((*p_train).current_index > RAILWAY_SIZE){
+            p_train->current_index = 0;
         }
-        trains[train_number].current_pos = RAILWAY[trains[train_number].current_index];
-        xSemaphoreGive(trains_mutex);
+        p_train->current_pos = RAILWAY[(*p_train).current_index];
 
+        //Checks if there is a train stopped in the next station
         int i = 0;
-        bool stopped_in_station = false;
-        while(i < NUM_STATIONS && !stopped_in_station ){
-            if(stations[i].station_index == trains[train_number].current_index){
-                stopped_in_station = true;
+        p_train->status = 2;
+        if((*p_next_station).train_parked >= 0){
+            //If there is, reduce speed.
+            p_train->status = 1;
+        }
+
+        //Checks if it's currently stopped in a station
+        while(i < NUM_STATIONS){
+            if(stations[i].station_index == (*p_train).current_index){
+                //If it is, stops and waits for the passengers
+                p_train->status = 0;
+                if(i+1 < NUM_STATIONS){
+                    p_next_station = &stations[i+1];
+                } else {
+                    p_next_station = &stations[0];
+                }
             }
             i++;
         }
-        if(stopped_in_station){
+
+        xSemaphoreGive(trains_mutex);
+        switch ((*p_train).status)
+        {
+        case 0: //Train is stopped in station
             vTaskDelay(pdMS_TO_TICKS(TRAIN_STOP_IN_STATION_DELAY));
-        } else {
-            if(NUM_STATIONS < next_station.station_id+1) {
-                next_station = stations[0];
-            } else {
-                next_station = stations[next_station.station_id+1];
-            }
-            if(-1 == next_station.train_parked){
-                vTaskDelay(pdMS_TO_TICKS(TRAIN_SLOW_SPEED));
-            } else {
-                vTaskDelay(pdMS_TO_TICKS(TRAIN_NORMAL_SPEED));
-            }
+            break;
+        
+        case 1: //There's a train in the next station
+            vTaskDelay(pdMS_TO_TICKS(TRAIN_SLOW_SPEED));
+            break;
+
+        default:    //The next station is empty
+            vTaskDelay(pdMS_TO_TICKS(TRAIN_NORMAL_SPEED));
+            break;
         }
     }
 }
@@ -222,11 +226,11 @@ void app_main() {
 
     for (uint8_t i = 0; i < NUM_STATIONS; i++)
     {
-        xTaskCreate(station_task, "StationTask", 4096, &i, 1, NULL);
+        xTaskCreate(station_task, "StationTask", 4096, &stations[i], 1, NULL);
     }
 
     for (uint8_t i = 0; i < NUM_TRAINS; i++)
     {
-        xTaskCreate(train_task, "TrainTask", 4096, &i, 1, NULL);
+        xTaskCreate(train_task, "TrainTask", 4096, &trains[i], 1, NULL);
     }
 }

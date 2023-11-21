@@ -12,12 +12,6 @@ typedef struct position_struct {
     uint8_t y;
 } position_t;
 
-typedef struct train_struct {
-    position_t current_pos;
-    int8_t current_index;
-    uint8_t train_color;
-    uint8_t train_number;
-} train_t;
 
 typedef struct station_struct {
     position_t station_pos;
@@ -26,6 +20,13 @@ typedef struct station_struct {
     int8_t train_parked;
 } station_t;
 
+typedef struct train_struct {
+    position_t current_pos;
+    int8_t current_index;
+    uint8_t train_color;
+    uint8_t train_number;
+    uint8_t status;
+} train_t;
 
 const position_t RAILWAY[RAILWAY_SIZE] = {
     {5, 8}, {6, 8}, {8, 9}, {9, 10}, {10, 11}, {10, 12}, {10, 13}, {9, 14}, {7, 15}, {6, 15}, {5, 15},
