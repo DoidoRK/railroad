@@ -65,4 +65,5 @@ void print_trains(train_t active_trains[NUM_TRAINS]){
     }
     setfontcolor(WHITE);
 }
+
 #endif //_PRINT_H_

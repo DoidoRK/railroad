@@ -8,10 +8,10 @@
 #include "types.h"
 #include "print.h"
 
-#define PRINT_DELAY 300
+#define PRINT_DELAY 1000
 #define TRAIN_STOP_IN_STATION_DELAY 5000
-#define TRAIN_NORMAL_SPEED 250
-#define TRAIN_SLOW_SPEED 750
+#define TRAIN_NORMAL_SPEED 1000
+#define TRAIN_SLOW_SPEED 2000
 #define STATION_UPDATE_TIME 100
 
 static const char *FILE_SYSTEM_TAG = "file_system";
@@ -31,34 +31,36 @@ int8_t findPositionInRailway(const position_t *railway, size_t num_points, const
     return -1; // Not found
 }
 
-void init_stations(){
+esp_err_t init_stations(){
     for (uint8_t i = 0; i < NUM_STATIONS; i++) {
         stations[i].station_pos = STATIONS_POSITIONS[i];
         stations[i].station_index = findPositionInRailway(RAILWAY,RAILWAY_SIZE,&stations[i].station_pos);
         if(-1 == stations[i].station_index){
             ESP_LOGE(MAIN_TAG, "Station position not found in the railway");
-            return;
+            return ESP_FAIL;
         }
         stations[i].station_id = i;
-        stations[i].train_parked = 0;
+        stations[i].train_parked = -1;
     }
     ESP_LOGI(MAIN_TAG, "Stations successfully initiated.");
+    return ESP_OK;
 }
 
-void init_trains(){
+esp_err_t init_trains(){
     for (uint8_t i = 0; i < NUM_TRAINS; i++) {
         //In conio_linux.h the first color is black, which is the same as the terminal background
         //So we start from the first color on.
         trains[i].train_color = 1 + i;
         trains[i].current_pos = STATIONS_POSITIONS[i];  //Trains start in different stations.
-        trains[i].train_number = 1 + i;
+        trains[i].train_number = i;
         trains[i].current_index = findPositionInRailway(RAILWAY,RAILWAY_SIZE, &trains[i].current_pos);
         if(-1 == trains[i].current_index){
             ESP_LOGE(MAIN_TAG, "Train position not found in the railway");
-            return;
+            return ESP_FAIL;
         }
     }
     ESP_LOGI(MAIN_TAG, "Trains successfully initated.");
+    return ESP_OK;
 }
 
 void station_task(void *params){
@@ -112,11 +114,15 @@ void train_task(void *params){
         if(stopped_in_station){
             vTaskDelay(pdMS_TO_TICKS(TRAIN_STOP_IN_STATION_DELAY));
         } else {
-            next_station = stations[next_station.station_id+1];
-            if(-1 == next_station.train_parked){
-                vTaskDelay(pdMS_TO_TICKS(TRAIN_NORMAL_SPEED));
+            if(NUM_STATIONS < next_station.station_id+1) {
+                next_station = stations[0];
             } else {
+                next_station = stations[next_station.station_id+1];
+            }
+            if(-1 == next_station.train_parked){
                 vTaskDelay(pdMS_TO_TICKS(TRAIN_SLOW_SPEED));
+            } else {
+                vTaskDelay(pdMS_TO_TICKS(TRAIN_NORMAL_SPEED));
             }
         }
     }
@@ -152,11 +158,20 @@ void print_system_task(void *params){
     fileContent[contentSize] = '\0';
 
     while (1) {
+        int z = 0;
+        for (size_t i = 0; i < NUM_STATIONS/2; i++)
+        {
+            for (size_t j = 0; j < NUM_STATIONS/3; j++)
+            {
+                print_station_time_table(27+(30*i),2+(10*j),trains,stations[z]);
+                z++;
+            }
+        }
         gotoxy(0,0);
-        printf("%s\n", fileContent);
+        printf("%s", fileContent);
         print_trains(trains);
-        vTaskDelay(pdMS_TO_TICKS(PRINT_DELAY));
         gotoxy(0,22);
+        vTaskDelay(pdMS_TO_TICKS(PRINT_DELAY));
     }
 }
 
@@ -173,14 +188,14 @@ void app_main() {
     esp_err_t ret = esp_vfs_spiffs_register(&conf);
     if (ret != ESP_OK) {
         ESP_LOGE(FILE_SYSTEM_TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
-        return;
+        exit(1);
     }
 
     size_t total = 0, used = 0;
     ret = esp_spiffs_info(conf.partition_label,&total,&used);
     if (ret != ESP_OK) {
         ESP_LOGE(FILE_SYSTEM_TAG, "Failed to get partition info (%s)", esp_err_to_name(ret));
-        return;
+        exit(1);
     } else {
         ESP_LOGI(FILE_SYSTEM_TAG, "Partition size: total: %d, used: %d", total, used);
     }
@@ -188,19 +203,19 @@ void app_main() {
     trains_mutex = xSemaphoreCreateMutex();
     if (trains_mutex == NULL) {
         ESP_LOGE(MAIN_TAG, "Trains mutex creation failed");
-        return;
+        exit(1);
     }
     xSemaphoreGive(trains_mutex);
 
     stations_mutex = xSemaphoreCreateMutex();
     if (stations_mutex == NULL) {
         ESP_LOGE(MAIN_TAG, "Stations mutex creation failed");
-        return;
+        exit(1);
     }
     xSemaphoreGive(stations_mutex);
 
-    init_stations();
-    init_trains();
+    ESP_ERROR_CHECK(init_stations());
+    ESP_ERROR_CHECK(init_trains());
     clrscr();
 
     xTaskCreate(print_system_task, "PrintSystemTask", 4096, NULL, 3, NULL);
