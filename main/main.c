@@ -127,6 +127,7 @@ void train_task(void *params){
     }
 }
 
+//I still need to find a way to print animations properly.
 void print_system_task(void *params){
     size_t contentSize = 0;
     // Open the file for reading
