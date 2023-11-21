@@ -1,13 +1,12 @@
 #include <stdio.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-#include <freertos/semphr.h>
-#include <esp_log.h>
-#include <string.h>
+#include "esp_spiffs.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "conio_linux.h"
+#include "esp_log.h"
 #include "types.h"
 #include "print.h"
-#include "file_system.h"
 
 #define PRINT_DELAY 300
 #define TRAIN_STOP_IN_STATION_DELAY 5000
@@ -15,11 +14,8 @@
 #define TRAIN_SLOW_SPEED 750
 #define STATION_UPDATE_TIME 100
 
+static const char *FILE_SYSTEM_TAG = "file_system";
 static const char *MAIN_TAG = "railroad_system";
-
-char original_map[BUFF_SIZE];
-
-char animation_buffer[BUFF_SIZE];
 
 station_t stations[NUM_STATIONS];
 train_t trains[NUM_TRAINS];
@@ -35,22 +31,21 @@ int8_t findPositionInRailway(const position_t *railway, size_t num_points, const
     return -1; // Not found
 }
 
-esp_err_t init_stations(){
+void init_stations(){
     for (uint8_t i = 0; i < NUM_STATIONS; i++) {
         stations[i].station_pos = STATIONS_POSITIONS[i];
         stations[i].station_index = findPositionInRailway(RAILWAY,RAILWAY_SIZE,&stations[i].station_pos);
         if(-1 == stations[i].station_index){
             ESP_LOGE(MAIN_TAG, "Station position not found in the railway");
-            return ESP_FAIL;
+            return;
         }
         stations[i].station_id = i;
-        stations[i].train_parked = -1;
+        stations[i].train_parked = 0;
     }
     ESP_LOGI(MAIN_TAG, "Stations successfully initiated.");
-    return ESP_OK;
 }
 
-esp_err_t init_trains(){
+void init_trains(){
     for (uint8_t i = 0; i < NUM_TRAINS; i++) {
         //In conio_linux.h the first color is black, which is the same as the terminal background
         //So we start from the first color on.
@@ -60,11 +55,10 @@ esp_err_t init_trains(){
         trains[i].current_index = findPositionInRailway(RAILWAY,RAILWAY_SIZE, &trains[i].current_pos);
         if(-1 == trains[i].current_index){
             ESP_LOGE(MAIN_TAG, "Train position not found in the railway");
-            return ESP_FAIL;
+            return;
         }
     }
     ESP_LOGI(MAIN_TAG, "Trains successfully initated.");
-    return ESP_OK;
 }
 
 void station_task(void *params){
@@ -116,67 +110,100 @@ void train_task(void *params){
             i++;
         }
         if(stopped_in_station){
-            if( NUM_STATIONS > next_station.station_id+1){
-                next_station = stations[0];
-            } else{
-                next_station = stations[next_station.station_id+1];
-            }
             vTaskDelay(pdMS_TO_TICKS(TRAIN_STOP_IN_STATION_DELAY));
         } else {
+            next_station = stations[next_station.station_id+1];
             if(-1 == next_station.train_parked){
-                vTaskDelay(pdMS_TO_TICKS(TRAIN_SLOW_SPEED));
-            } else {
                 vTaskDelay(pdMS_TO_TICKS(TRAIN_NORMAL_SPEED));
+            } else {
+                vTaskDelay(pdMS_TO_TICKS(TRAIN_SLOW_SPEED));
             }
         }
     }
 }
 
-void print_map_task(void *params){
+void print_system_task(void *params){
+    size_t contentSize = 0;
+    // Open the file for reading
+    FILE *file = fopen("/files/map.txt", "r");
+
+    if (file == NULL) {
+        ESP_LOGE(FILE_SYSTEM_TAG, "Failed to open the file.\n");
+        return;
+    }
+    // Seek to the beginning of the file
+    fseek(file, 0, SEEK_SET);
+
+    // Check the file size
+    fseek(file, 0, SEEK_END);
+    contentSize = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    //Buffer to store the file contents.
+    char fileContent[contentSize];
+
+    // Read the file content into the buffer
+    size_t bytesRead = fread(fileContent, 1, contentSize, file);
+
+    if (bytesRead != contentSize) {
+        ESP_LOGE(FILE_SYSTEM_TAG, "Failed to read the file.\n");
+        return;
+    }
+    fileContent[contentSize] = '\0';
+
     while (1) {
-        int z = 0;
-        for (size_t i = 0; i < NUM_STATIONS/2; i++)
-        {
-            for (size_t j = 0; j < NUM_STATIONS/3; j++)
-            {
-                print_station_time_table(27+(30*i),2+(10*j),trains,stations[z]);
-                z++;
-            }
-        }
-        copy_buffer(animation_buffer,original_map, BUFF_SIZE*sizeof(char));
-        update_trains(animation_buffer,trains);
         gotoxy(0,0);
-        printf("%s\n", animation_buffer);
-        gotoxy(0,22);
+        printf("%s\n", fileContent);
+        print_trains(trains);
         vTaskDelay(pdMS_TO_TICKS(PRINT_DELAY));
+        gotoxy(0,22);
     }
 }
 
 
 void app_main() {
-    ESP_ERROR_CHECK(init_file_system());
-    ESP_ERROR_CHECK(read_file_content(original_map));
+    // Mount the SPIFFS file system
+    esp_vfs_spiffs_conf_t conf = {
+        .base_path = "/files",
+        .partition_label = NULL,
+        .max_files = 5,
+        .format_if_mount_failed = true
+    };
+    
+    esp_err_t ret = esp_vfs_spiffs_register(&conf);
+    if (ret != ESP_OK) {
+        ESP_LOGE(FILE_SYSTEM_TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
+        return;
+    }
+
+    size_t total = 0, used = 0;
+    ret = esp_spiffs_info(conf.partition_label,&total,&used);
+    if (ret != ESP_OK) {
+        ESP_LOGE(FILE_SYSTEM_TAG, "Failed to get partition info (%s)", esp_err_to_name(ret));
+        return;
+    } else {
+        ESP_LOGI(FILE_SYSTEM_TAG, "Partition size: total: %d, used: %d", total, used);
+    }
     
     trains_mutex = xSemaphoreCreateMutex();
     if (trains_mutex == NULL) {
         ESP_LOGE(MAIN_TAG, "Trains mutex creation failed");
-        exit(1);
+        return;
     }
     xSemaphoreGive(trains_mutex);
 
     stations_mutex = xSemaphoreCreateMutex();
     if (stations_mutex == NULL) {
         ESP_LOGE(MAIN_TAG, "Stations mutex creation failed");
-        exit(1);
+        return;
     }
     xSemaphoreGive(stations_mutex);
 
-    ESP_ERROR_CHECK(init_stations());
-    ESP_ERROR_CHECK(init_trains());
-
+    init_stations();
+    init_trains();
     clrscr();
 
-    xTaskCreate(print_map_task, "PrintMapTask", 4096, NULL, 3, NULL);
+    xTaskCreate(print_system_task, "PrintSystemTask", 4096, NULL, 3, NULL);
 
     for (uint8_t i = 0; i < NUM_STATIONS; i++)
     {
